@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eKehadiran SSeMS | Pengurusan Profesional</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #f8fafc;
+        }
+        
+        .input-premium {
+            @apply w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none font-semibold text-slate-700;
+        }
+
+        .glass-header {
+            background: linear-gradient(135deg, #312e81 0%, #4338ca 100%);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
+    </style>
+</head>
+<body class="text-slate-900 pb-10">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="flex flex-col items-center max-w-xs text-center px-6">
+            <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <p id="loading-text" class="mt-4 text-indigo-900 font-bold">Menghubungkan ke Awan...</p>
+            <p class="text-xs text-slate-400 mt-2 italic">Sistem sedang menyediakan portal.</p>
+            
+            <button id="btn-bypass" onclick="forceCloseLoader()" class="mt-10 px-8 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-extrabold rounded-2xl transition-all shadow-sm border border-indigo-100 hidden">
+                MASUK SECARA MANUAL
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-4 rounded-2xl shadow-2xl text-white font-bold transition-all duration-500 transform -translate-y-32 opacity-0 hidden">
+        <span id="toast-message">Mesej</span>
+    </div>
+
+    <!-- Header Section -->
+    <header class="glass-header text-white pt-10 pb-24 px-6 no-print">
+        <div class="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-4">
+                <div class="bg-white p-1.5 rounded-2xl shadow-lg">
+                    <img src="https://i.postimg.cc/13HJQrzF/images.png" alt="Logo SSeMS" class="h-14 w-auto object-contain" onerror="this.src='https://placehold.co/60x60?text=SSeMS'">
+                </div>
+                <div>
+                    <h1 class="text-2xl font-extrabold tracking-tight">eKehadiran SSeMS</h1>
+                    <p class="text-indigo-100/70 text-sm font-medium">SEKOLAH SENI MALAYSIA SARAWAK</p>
+                </div>
+            </div>
+            <div class="hidden md:block text-right">
+                <p id="current-time-display" class="text-xs font-bold text-indigo-200 uppercase tracking-widest"></p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Body -->
+    <main class="max-w-4xl mx-auto px-6 -mt-12 relative z-10">
+        
+        <div id="view-entry" class="space-y-6 animate-slide-up">
+            
+            <!-- Info Card -->
+            <div class="bg-white rounded-3xl shadow-xl shadow-indigo-900/5 p-8 border border-slate-100">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Tarikh</label>
+                        <input type="date" id="input-date" onchange="updateDay()" class="input-premium">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Hari</label>
+                        <div id="display-day" class="w-full bg-slate-100 border border-slate-100 text-slate-500 rounded-2xl px-5 py-3 font-bold text-sm">
+                            Memuatkan...
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Kelas / Bidang Seni</label>
+                        <select id="select-class" class="input-premium appearance-none text-sm">
+                            <option value="">Pilih Kelas...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Card -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Bilangan Hadir</p>
+                        <input type="number" id="input-present" value="0" class="text-4xl font-black text-emerald-600 bg-transparent border-none focus:outline-none w-32">
+                    </div>
+                    <div class="bg-emerald-50 p-4 rounded-2xl text-emerald-600">
+                        <i class="ph-fill ph-check-circle text-4xl"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Bilangan Tidak Hadir</p>
+                        <input type="number" id="input-absent" value="0" class="text-4xl font-black text-rose-600 bg-transparent border-none focus:outline-none w-32" readonly>
+                    </div>
+                    <div class="bg-rose-50 p-4 rounded-2xl text-rose-600">
+                        <i class="ph-fill ph-user-minus text-4xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Absentee List -->
+            <div class="bg-white rounded-3xl shadow-xl shadow-indigo-900/5 border border-slate-100 overflow-hidden">
+                <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h2 class="font-extrabold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
+                        <i class="ph-bold ph-list-bullets text-indigo-600"></i>
+                        Butiran Ketidakhadiran
+                    </h2>
+                    <button onclick="addAbsenteeRow()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 active:scale-95">
+                        <i class="ph-bold ph-plus"></i> Tambah Nama
+                    </button>
+                </div>
+                
+                <div class="p-8">
+                    <div id="empty-state-absentee" class="text-center py-12 text-slate-400 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100">
+                        <p class="font-bold text-sm text-slate-500">Tiada data ketidakhadiran.</p>
+                        <p class="text-xs">Klik 'Tambah Nama' jika ada pelajar tidak hadir.</p>
+                    </div>
+
+                    <div id="table-container-absentee" class="hidden overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-[10px] text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                <tr>
+                                    <th class="pb-4 font-bold">Nama Pelajar</th>
+                                    <th class="pb-4 font-bold">Sebab</th>
+                                    <th class="pb-4 font-bold">Catatan</th>
+                                    <th class="pb-4 text-center font-bold">Padam</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-absentees" class="divide-y divide-slate-50">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submission Area -->
+            <div class="bg-white p-8 rounded-3xl shadow-xl shadow-indigo-900/5 flex flex-col md:flex-row items-end gap-6 border border-slate-100">
+                <div class="flex-grow space-y-2 w-full">
+                    <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Nama Guru</label>
+                    <input type="text" id="input-recorder" placeholder="Masukkan nama anda..." class="input-premium">
+                </div>
+                <button onclick="submitRecord()" id="btn-submit" class="w-full md:w-auto bg-indigo-900 text-white font-black px-10 py-4 rounded-2xl shadow-xl hover:bg-indigo-800 transition-all flex items-center justify-center gap-3 active:scale-95">
+                    <i class="ph-bold ph-cloud-arrow-up text-xl"></i>
+                    SIMPAN REKOD
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-16 text-center no-print pb-10">
+        <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">&copy; <span id="year"></span> eKehadiran Sekolah Seni Malaysia Sarawak</p>
+    </footer>
+
+    <datalist id="student-names"></datalist>
+
+    <!-- Firebase Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Konfigurasi Pangkalan Data
+        let app, auth, db, appId;
+        const fallbackId = 'ssems-kehadiran-v1';
+        const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbys6ppCs-VdSflT9Dr58KPzRxP8bwlZL35mVl_tQv3TXwZ_kBMzSDnjj6snbCEi8wVUGw/exec";
+
+        try {
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            appId = typeof __app_id !== 'undefined' ? __app_id : fallbackId;
+            if (firebaseConfig) {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            }
+        } catch (e) { console.error("Firebase Config Error:", e); }
+
+        let user = null;
+        let absentees = [];
+
+        // Struktur Kelas Berdasarkan Permintaan Anda
+        const CLASS_STRUCTURE = [
+            { group: "Tingkatan 1", classes: ["Painite 1", "Painite 2", "Painite 3"] },
+            { group: "Tingkatan 2", classes: ["Blue Garnet 1", "Blue Garnet 2", "Blue Garnet 3"] },
+            { group: "Tingkatan 3", classes: ["Serendibite 1", "Serendibite 2", "Serendibite 3"] },
+            { group: "Tingkatan 4", classes: ["Red Diamond 1", "Red Diamond 2", "Red Diamond 3"] },
+            { group: "Tingkatan 5", classes: ["Jadeite 1", "Jadeite 2", "Jadeite 3"] },
+            { group: "Bidang Tari Tingkatan 4", classes: ["Produksi Seni Persembahan Tingkatan 4", "Tarian Tingkatan 4", "Koreografi Tari Tingkatan 4", "Apresiasi Tari Tingkatan 4"] },
+            { group: "Bidang Tari Tingkatan 5", classes: ["Produksi Seni Persembahan Tingkatan 5", "Tarian Tingkatan 5", "Koreografi Tari Tingkatan 5", "Apresiasi Tari Tingkatan 5"] },
+            { group: "Bidang Teater Tingkatan 4", classes: ["Produksi Seni Persembahan Tingkatan 4", "Lakonan Tingkatan 4", "Penulisan Skrip Tingkatan 4", "Sinografi Tingkatan 4"] },
+            { group: "Bidang Teater Tingkatan 5", classes: ["Produksi Seni Persembahan Tingkatan 5", "Lakonan Tingkatan 5", "Penulisan Skrip Tingkatan 5", "Sinografi Tingkatan 5"] },
+            { group: "Bidang Muzik Tingkatan 4", classes: ["Produksi Seni Persembahan Tingkatan 4", "Alat Muzik Utama Tingkatan 4", "Muzik Komputer Tingkatan 4", "Aural & Teori Muzik Tingkatan 4"] },
+            { group: "Bidang Muzik Tingkatan 5", classes: ["Produksi Seni Persembahan Tingkatan 5", "Alat Muzik Utama Tingkatan 5", "Muzik Komputer Tingkatan 5", "Aural & Teori Muzik Tingkatan 5"] },
+            { group: "Bidang Visual (Reka Bentuk) Tingkatan 4", classes: ["Lukisan Tingkatan 4", "Sejarah & Pengurusan Seni Tingkatan 4", "Reka Bentuk Kraf Tingkatan 4", "Reka Bentuk Industri Tingkatan 4"] },
+            { group: "Bidang Visual (Reka Bentuk) Tingkatan 5", classes: ["Lukisan Tingkatan 5", "Sejarah & Pengurusan Seni Tingkatan 5", "Reka Bentuk Kraf", "Reka Bentuk Industri"] },
+            { group: "Bidang Visual (Seni Halus) Tingkatan 4", classes: ["Lukisan Tingkatan 4", "Sejarah & Pengurusan Seni Tingkatan 4", "Seni Halus 2D Tingkatan 4", "Seni Halus 3D Tingkatan 4"] },
+            { group: "Bidang Visual (Seni Halus) Tingkatan 5", classes: ["Lukisan Tingkatan 5", "Sejarah & Pengurusan Seni Tingkatan 5", "Seni Halus 2D Tingkatan 5", "Seni Halus 3D Tingkatan 5"] },
+            { group: "Bidang Visual (Komunikasi Visual) Tingkatan 4", classes: ["Lukisan Tingkatan 4", "Sejarah & Pengurusan Seni Tingkatan 4", "Reka Bentuk Grafik Tingkatan 4", "Multimedia Kreatif Tingkatan 4"] },
+            { group: "Bidang Visual (Komunikasi Visual) Tingkatan 5", classes: ["Lukisan Tingkatan 5", "Sejarah & Pengurusan Seni Tingkatan 5", "Reka Bentuk Grafik Tingkatan 5", "Multimedia Kreatif Tingkatan 5"] }
+        ];
+
+        const REASONS = ["Sakit", "Urusan Keluarga", "Aktiviti Sekolah", "Ponteng", "Gantung", "Lain-lain"];
+
+        // Init Auth
+        const initAuth = async () => {
+            setTimeout(() => {
+                const btn = document.getElementById('btn-bypass');
+                if (btn) btn.classList.remove('hidden');
+            }, 3000);
+            setTimeout(forceCloseLoader, 5000);
+            if (!auth) { forceCloseLoader(); return; }
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) { forceCloseLoader(); }
+        };
+
+        if (auth) {
+            onAuthStateChanged(auth, (u) => {
+                user = u;
+                if (u) { forceCloseLoader(); }
+            });
+        }
+
+        window.forceCloseLoader = () => {
+            const loader = document.getElementById('loading-overlay');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.classList.add('hidden'), 500);
+            }
+        };
+
+        window.onload = function() {
+            document.getElementById('year').textContent = new Date().getFullYear();
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('input-date').value = today;
+            updateDay();
+            populateDropdowns();
+            fetchStudentNames();
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('current-time-display').textContent = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }, 1000);
+        };
+
+        function populateDropdowns() {
+            const select = document.getElementById('select-class');
+            CLASS_STRUCTURE.forEach(group => {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = group.group;
+                group.classes.forEach(cls => {
+                    const opt = document.createElement('option');
+                    opt.value = cls; opt.textContent = cls;
+                    optgroup.appendChild(opt);
+                });
+                select.appendChild(optgroup);
+            });
+        }
+
+        window.updateDay = () => {
+            const dateVal = document.getElementById('input-date').value;
+            if (!dateVal) return;
+            const days = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'];
+            const d = new Date(dateVal);
+            document.getElementById('display-day').textContent = days[d.getDay()];
+            document.getElementById('display-day').className = "w-full bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-2xl px-5 py-3 font-bold text-sm";
+        };
+
+        async function fetchStudentNames() {
+            try {
+                const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vQkAHX9_pmm4pErSapqb1ByGXaGGKtrFN5hLB_eP9DhqwPD8_oYq_lI8qq7aDNU6muiyZlpXCQXeW05/pub?output=csv');
+                const text = await response.text();
+                const rows = text.split('\n').map(r => r.split(','));
+                const names = rows.slice(1).map(r => r[1] || r[0]).filter(n => n && n.trim().length > 2);
+                const datalist = document.getElementById('student-names');
+                datalist.innerHTML = names.map(n => `<option value="${n.replace(/"/g, '').trim()}">`).join('');
+            } catch (e) { console.warn("Dataset pelajar tidak dapat diakses."); }
+        }
+
+        window.addAbsenteeRow = () => {
+            const id = Date.now();
+            absentees.push({ id, name: '', reason: 'Sakit', remarks: '' });
+            renderAbsenteeRows();
+            updateAbsentCount();
+        };
+
+        window.removeAbsenteeRow = (id) => {
+            absentees = absentees.filter(a => a.id !== id);
+            renderAbsenteeRows();
+            updateAbsentCount();
+        };
+
+        window.updateAbsenteeData = (id, field, value) => {
+            const idx = absentees.findIndex(a => a.id === id);
+            if (idx !== -1) absentees[idx][field] = value;
+        };
+
+        function updateAbsentCount() {
+            document.getElementById('input-absent').value = absentees.length;
+        }
+
+        function renderAbsenteeRows() {
+            const tbody = document.getElementById('tbody-absentees');
+            const empty = document.getElementById('empty-state-absentee');
+            const container = document.getElementById('table-container-absentee');
+            tbody.innerHTML = '';
+            if (absentees.length === 0) {
+                empty.classList.remove('hidden'); container.classList.add('hidden');
+                return;
+            }
+            empty.classList.add('hidden'); container.classList.remove('hidden');
+            absentees.forEach((s) => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-50 transition-colors group";
+                const opts = REASONS.map(r => `<option value="${r}" ${s.reason === r ? 'selected' : ''}>${r}</option>`).join('');
+                row.innerHTML = `
+                    <td class="py-4 pr-4">
+                        <input type="text" list="student-names" value="${s.name}" onchange="updateAbsenteeData(${s.id}, 'name', this.value)" 
+                             class="w-full bg-white border border-slate-100 rounded-xl px-4 py-2 text-xs font-semibold focus:border-indigo-500 outline-none shadow-sm">
+                    </td>
+                    <td class="py-4 pr-4">
+                        <select onchange="updateAbsenteeData(${s.id}, 'reason', this.value)" class="bg-white border border-slate-100 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 outline-none shadow-sm cursor-pointer">
+                            ${opts}
+                        </select>
+                    </td>
+                    <td class="py-4 pr-4">
+                        <input type="text" value="${s.remarks}" onchange="updateAbsenteeData(${s.id}, 'remarks', this.value)" placeholder="Catatan..."
+                            class="w-full bg-white border border-slate-100 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none">
+                    </td>
+                    <td class="py-4 text-center">
+                        <button onclick="removeAbsenteeRow(${s.id})" class="text-slate-300 hover:text-rose-500 transition-colors p-2 active:scale-90">
+                            <i class="ph-bold ph-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        window.submitRecord = async () => {
+            const date = document.getElementById('input-date').value;
+            const cls = document.getElementById('select-class').value;
+            const recorder = document.getElementById('input-recorder').value;
+            const present = document.getElementById('input-present').value;
+            const absent = document.getElementById('input-absent').value;
+
+            if (!date || !cls || !recorder) {
+                showToast("Sila lengkapkan maklumat utama.", "error");
+                return;
+            }
+
+            const record = {
+                date, className: cls,
+                present: parseInt(present) || 0,
+                absent: parseInt(absent) || 0,
+                recorder,
+                absenteesList: absentees.map(({name, reason, remarks}) => ({name, reason, remarks})),
+                timestamp: new Date().toLocaleTimeString('ms-MY'),
+                createdAt: new Date().toISOString()
+            };
+
+            const loader = document.getElementById('loading-overlay');
+            const loaderText = document.getElementById('loading-text');
+            loaderText.textContent = "Menyimpan ke WebApp...";
+            loader.classList.remove('hidden');
+
+            try {
+                // Penghantaran ke Google WebApp
+                await fetch(GOOGLE_WEBAPP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    cache: 'no-cache',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(record)
+                });
+
+                // Penghantaran ke Firestore (Awan) sebagai sandaran
+                if (user && db) {
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'attendance_records');
+                    await addDoc(colRef, record);
+                }
+
+                showToast("Rekod Berjaya Dihantar!Terima Kasih!");
+                resetEntry();
+            } catch (e) {
+                console.error("Save error:", e);
+                showToast("Gagal menghantar rekod.", "error");
+            } finally {
+                loader.classList.add('hidden');
+                loaderText.textContent = "Menghubungkan ke Awan...";
+            }
+        };
+
+        function resetEntry() {
+            absentees = []; renderAbsenteeRows();
+            document.getElementById('input-present').value = 0;
+            document.getElementById('input-absent').value = 0;
+            document.getElementById('select-class').value = "";
+        }
+
+        function showToast(msg, type = "success") {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-8 py-4 rounded-2xl shadow-2xl text-white font-bold transition-all duration-500 flex items-center gap-3 ${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`;
+            toast.classList.remove('hidden', '-translate-y-32', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('-translate-y-32', 'opacity-0');
+                setTimeout(() => toast.classList.add('hidden'), 500);
+            }, 3000);
+        }
+
+        initAuth();
+    </script>
+</body>
+</html>
